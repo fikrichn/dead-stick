@@ -287,6 +287,17 @@ export function createCockpit() {
     group.add(lever);
     throttleLevers.push(lever);
   }
+  // The two black levers are the SIM GEAR quadrant: the left one
+  // steps time down, the right one steps it up (x1, x2, x4). They sit
+  // where a throttle quadrant would, because that is where a hand
+  // already expects the speed of the world to be decided.
+  const simLabel = labelPlane('SIM GEAR', 0.4, 0.1, '#b9c2c9', '#14171c', 42);
+  simLabel.position.set(0, -0.27, 5.86);
+  simLabel.rotation.x = -0.9;
+  group.add(simLabel);
+  hitbox('simDown', 'SIM GEAR down — time steps slower (or press −)', 0.3, 0.55, 0.5, -0.12, -0.32, 6.1);
+  hitbox('simUp', 'SIM GEAR up — time steps faster (or press =). Linger at x4 and the air turns rough', 0.3, 0.55, 0.5, 0.12, -0.32, 6.1);
+
   // The speedbrake lever, left of the throttles: pull it and she
   // steepens like a brick — the only way down from a high approach.
   const speedbrakeLever = new THREE.Group();
@@ -545,7 +556,8 @@ export function createCockpit() {
       trimWheel.rotation.x = (s.pitchInput || 0) * 1.4;
       yokeMine.rotation.z = (-s.bankDeg * Math.PI) / 180 * 0.9;
       yokeMine.position.z = 5.35 + s.pitchInput * 0.09;
-      for (const lever of throttleLevers) lever.rotation.x = -0.25 - s.throttle * 0.65;
+      const gearIndex = [1, 2, 4].indexOf(s.simRate || 1);
+      for (const lever of throttleLevers) lever.rotation.x = -0.08 - gearIndex * 0.3;
       speedbrakeLever.rotation.x = s.speedbrake ? 0.55 : -0.15;
       // Oxygen masks swing down in front of the seats once deployed.
       maskDrop = Math.max(0, Math.min(1, maskDrop + (s.oxygenDeployed ? dt * 1.6 : -dt * 3)));

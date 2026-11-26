@@ -492,7 +492,7 @@ function showHowTo() {
       'You are a passenger in the right seat. The captain is unconscious; the plane is descending into Port Alba and systems will fail one at a time. Each failure is fixed from the seat, on the real cockpit controls — the EICAS screen (right) always tells you what broke and what to click.\n\n' +
       'CONTROLS\n' +
       'Drag the mouse to look around • Click a control to use it • A/D bank • W/S pitch (trade speed for glide) • R/F throttle • SPACE speedbrakes • G gear • C tail camera • P pause • M mute\n' +
-      'The card at bottom-left tracks your progress to the runway: distance, whether you are above or below the descent profile, and your ETA. Its SIM GEAR buttons (− / + keys) run time at ×1, ×2 or ×4 — but linger at ×4 and the air itself turns rough.\n\n' +
+      'The card at bottom-left tracks your progress to the runway: distance, whether you are above or below the descent profile, and your ETA. Time runs at ×1, ×2 or ×4: use the − / = keys, the card buttons, or click the two black SIM GEAR levers beside the throttles — but linger at ×4 and the air itself turns rough.\n\n' +
       'THE EMERGENCIES\n' +
       '🔥 Engine fire — pull the red FIRE handle left of the screens, then press RESTART\n' +
       '⚡ Electrical — look UP, click the tripped (yellow) breakers back in\n' +
@@ -568,7 +568,9 @@ function fixEvent() {
 function endGame(wonGame, reason) {
   s.phase = wonGame ? 'won' : 'crashed';
   s.endReason = reason;
-  clearSave();
+  // A won flight is finished; a crashed one keeps its autosave, so
+  // Continue becomes the rewind it was always meant to be.
+  if (wonGame) clearSave();
   if (wonGame) {
     audio.touchdown();
     const alignBonus = Math.max(0, 300 - Math.abs(s.lateralM) * 10);
@@ -672,6 +674,10 @@ function doAction(action) {
     }
   } else if (action === 'gear') {
     toggleGear();
+  } else if (action === 'simDown') {
+    cycleSimRate(-1);
+  } else if (action === 'simUp') {
+    cycleSimRate(1);
   } else if (action === 'speedbrake') {
     s.speedbrake = !s.speedbrake;
     promptFlash(s.speedbrake ? 'Speedbrakes OUT — she steepens and slows.' : 'Speedbrakes in.');
@@ -798,7 +804,7 @@ function step(dt) {
   // answers the yoke: the nose, the glide angle and the speed all ease
   // toward the commanded value instead of snapping in one step, which
   // is what made the up-and-down motion feel notchy.
-  s.pitchSmooth += (pitchHeld - s.pitchSmooth) * Math.min(1, dt * 3.4);
+  s.pitchSmooth += (pitchHeld - s.pitchSmooth) * Math.min(1, dt * 4.6);
   if (Math.abs(s.pitchSmooth) < 0.001 && pitchHeld === 0) s.pitchSmooth = 0;
   s.pitchInput = s.pitchSmooth;
   if (held(input, 'KeyR')) s.throttle = Math.min(1, s.throttle + dt * 0.45);
@@ -849,7 +855,7 @@ function step(dt) {
     - s.pitchSmooth * DESCENT.pitchAuthorityDeg * pitchEff;
   // The glide itself eases too: gear and speedbrakes bite over a
   // second or so, they do not teleport the descent rate.
-  s.glideSmooth += (glideTarget - s.glideSmooth) * Math.min(1, dt * 1.6);
+  s.glideSmooth += (glideTarget - s.glideSmooth) * Math.min(1, dt * 2.4);
   // The glide may go negative: with both engines turning and the nose
   // up, she can genuinely climb — the speed bleed above is the price.
   let sink = s.speedKt * 0.5144 * Math.tan((Math.max(-2.2, s.glideSmooth) * Math.PI) / 180) * 196.85;
