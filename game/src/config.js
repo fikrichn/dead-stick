@@ -45,7 +45,7 @@ export const DESCENT = {
   dragDegGear: 1.2,
   dragDegSpeedbrake: 4.0,
   /** How much glide angle the yoke's pitch buys or sells, nose-down positive. */
-  pitchAuthorityDeg: 3.5,
+  pitchAuthorityDeg: 5.2,
 };
 
 /** The landing envelope: touch down inside all three, or it is a crash. */

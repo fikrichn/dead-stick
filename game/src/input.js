@@ -14,6 +14,7 @@ import { LOOK } from './config.js';
  */
 export function createInput(canvas) {
   const keys = new Set();
+  const pressed = [];
   const look = { yawDeg: 0, pitchDeg: 0 };
   const clicks = [];
   let dragging = false;
@@ -23,6 +24,10 @@ export function createInput(canvas) {
 
   window.addEventListener('keydown', (event) => {
     keys.add(event.code);
+    // One-shot actions queue here too: a tap shorter than one frame
+    // (a slow machine, a heavy scene) must not be lost between the
+    // keydown and the keyup.
+    if (!event.repeat) pressed.push(event.code);
     if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space'].includes(event.code)) {
       event.preventDefault();
     }
@@ -56,7 +61,7 @@ export function createInput(canvas) {
     if (dragMoved < 6) clicks.push({ x: event.clientX, y: event.clientY });
   });
 
-  return { keys, look, clicks };
+  return { keys, pressed, look, clicks };
 }
 
 /** True while any of the given key codes is held. */

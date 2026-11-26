@@ -122,6 +122,38 @@ export function createCockpit() {
   group.add(restartLabel);
   hitbox('restart', 'Press ENG 1 RESTART', 0.44, 0.4, 0.4, -1.32, -0.02, 4.7);
 
+  // --- Standby horizon: a little ball between the screens that rolls
+  // with the aircraft when everything else has gone dark ---
+  const standby = canvasTexture(128, 128);
+  {
+    const g = standby.ctx;
+    g.fillStyle = '#2e7fc2';
+    g.fillRect(0, 0, 128, 64);
+    g.fillStyle = '#7a5230';
+    g.fillRect(0, 64, 128, 64);
+    g.fillStyle = '#fff';
+    g.fillRect(0, 62, 128, 4);
+    g.strokeStyle = '#e8c832';
+    g.lineWidth = 6;
+    g.beginPath();
+    g.moveTo(24, 64);
+    g.lineTo(52, 64);
+    g.lineTo(64, 76);
+    g.lineTo(76, 64);
+    g.lineTo(104, 64);
+    g.stroke();
+    standby.texture.needsUpdate = true;
+  }
+  const standbyMesh = new THREE.Mesh(
+    new THREE.CircleGeometry(0.078, 24),
+    new THREE.MeshBasicMaterial({ map: standby.texture }),
+  );
+  standbyMesh.position.set(-0.035, 0.02, 4.745);
+  group.add(standbyMesh);
+  const standbyRing = new THREE.Mesh(new THREE.TorusGeometry(0.082, 0.012, 8, 24), flat('#0c0e11'));
+  standbyRing.position.copy(standbyMesh.position);
+  group.add(standbyRing);
+
   // --- Master warning button, front and centre ---
   const masterMat = basic('#571512');
   box(0.4, 0.17, 0.1, '#571512', -0.62, 0.44, 4.78, group, masterMat);
@@ -173,6 +205,11 @@ export function createCockpit() {
   ohLabel.position.set(0, 0.28, 0.1);
   ohLabel.rotation.x = -0.5;
   overhead.add(ohLabel);
+  for (let r = 0; r < 2; r++) {
+    for (let i = 0; i < 7; i++) {
+      box(0.05, 0.09, 0.05, '#aeb6bd', -0.78 + i * 0.26, 0.02 + r * 0.16, 0.09, overhead);
+    }
+  }
   const breakerMeshes = [];
   const breakerNames = ['PFD', 'HYD', 'CABIN', 'FUEL'];
   for (let i = 0; i < 4; i++) {
@@ -209,6 +246,34 @@ export function createCockpit() {
   yokeHis.rotation.z = 0.5;
   yokeHis.position.y = -0.42;
 
+  // The emergency checklist, clipped to my yoke where a shaking hand
+  // can read it: the whole game on one card.
+  const card = canvasTexture(256, 192);
+  {
+    const g = card.ctx;
+    g.fillStyle = '#e8e2d2';
+    g.fillRect(0, 0, 256, 192);
+    g.fillStyle = '#7a1710';
+    g.font = 'bold 21px system-ui, sans-serif';
+    g.textAlign = 'left';
+    g.fillText('EMERGENCY', 14, 30);
+    g.fillStyle = '#22252a';
+    g.font = '16px system-ui, sans-serif';
+    g.fillText('FIRE ..... PULL, then RESTART', 14, 62);
+    g.fillText('ELEC ..... BREAKERS back IN', 14, 88);
+    g.fillText('HYD ...... HOLD HER LEVEL', 14, 114);
+    g.fillText('PRESS .... MASK, then X-FEED', 14, 140);
+    g.fillText('LAND ..... GEAR, 105-165 kt', 14, 166);
+    card.texture.needsUpdate = true;
+  }
+  const clipboard = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.3, 0.225),
+    new THREE.MeshBasicMaterial({ map: card.texture }),
+  );
+  clipboard.position.set(0, 0.3, -0.05);
+  clipboard.rotation.x = -0.25;
+  yokeMine.add(clipboard);
+
   // --- Centre pedestal and throttle levers ---
   box(0.62, 0.75, 1.9, '#1d2129', 0, -0.85, 5.9, group);
   const throttleLevers = [];
@@ -236,6 +301,27 @@ export function createCockpit() {
   sbLabel.rotation.x = -0.9;
   group.add(sbLabel);
   hitbox('speedbrake', 'Speedbrake lever — steepen the descent (or press SPACE)', 0.44, 0.44, 0.5, -0.32, -0.4, 6.05);
+
+  const trimWheel = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.028, 8, 20), flat('#101216'));
+  trimWheel.position.set(0.34, -0.62, 6.0);
+  trimWheel.rotation.y = Math.PI / 2;
+  group.add(trimWheel);
+  const flapLever = new THREE.Group();
+  const flapArm = box(0.05, 0.3, 0.05, '#c8ccd0', 0, 0.14, 0, flapLever);
+  void flapArm;
+  const flapKnob = box(0.12, 0.07, 0.1, '#e8e8e8', 0, 0.3, 0, flapLever);
+  void flapKnob;
+  flapLever.position.set(0.3, -0.52, 6.42);
+  flapLever.rotation.x = 0.35;
+  group.add(flapLever);
+  const flapLabel = labelPlane('FLAP', 0.26, 0.09, '#b9c2c9', '#14171c', 44);
+  flapLabel.position.set(0.3, -0.32, 6.3);
+  flapLabel.rotation.x = -0.9;
+  group.add(flapLabel);
+  for (const px of [0.28, 0.82]) {
+    const pedal = box(0.17, 0.24, 0.05, '#191d23', px, -1.0, 5.05, group);
+    pedal.rotation.x = -0.5;
+  }
 
   const maydayMat = basic('#7a1710');
   box(0.34, 0.12, 0.3, '#7a1710', 0, -0.42, 5.55, group, maydayMat);
@@ -275,9 +361,22 @@ export function createCockpit() {
     leg.rotation.x = Math.PI / 2.3;
     captain.add(leg);
   }
+  for (const s of [-1, 1]) {
+    box(0.1, 0.025, 0.06, '#d8b93a', s * 0.17, 0.7, 0, captain); // epaulettes
+    const belt = box(0.05, 0.5, 0.02, '#101216', s * 0.1, 0.38, 0.24, captain);
+    belt.rotation.x = 0.2;
+    belt.rotation.z = s * 0.35;
+  }
+  const headset = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.018, 8, 20, Math.PI), flat('#14171c'));
+  headset.position.set(0, 0.86, 0.1);
+  headset.rotation.z = 0.15;
+  captain.add(headset);
+  const mic = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.22, 6), flat('#14171c'));
+  mic.position.set(0.1, 0.74, 0.22);
+  mic.rotation.z = 1.1;
+  mic.rotation.x = 0.5;
+  captain.add(mic);
   captain.position.set(-0.62, -0.72, 6.85);
-  captain.rotation.x = 0.52; // slumped forward over his yoke
-  captain.rotation.z = 0.18;
   group.add(captain);
 
   // --- Oxygen masks: stowed above, they drop when deployed ---
@@ -438,6 +537,12 @@ export function createCockpit() {
         breaker.position.z = on ? 0.1 : 0.02;
         breaker.material.color.setHex(on ? 0x4a7a5f : 0xd8b93a);
       });
+      const slump = s.captainSlump ?? 1;
+      captain.rotation.x = 0.52 * slump;
+      captain.rotation.z = 0.18 * slump;
+      captain.position.y = -0.72 - 0.06 * slump;
+      standbyMesh.rotation.z = (s.bankDeg * Math.PI) / 180;
+      trimWheel.rotation.x = (s.pitchInput || 0) * 1.4;
       yokeMine.rotation.z = (-s.bankDeg * Math.PI) / 180 * 0.9;
       yokeMine.position.z = 5.35 + s.pitchInput * 0.09;
       for (const lever of throttleLevers) lever.rotation.x = -0.25 - s.throttle * 0.65;

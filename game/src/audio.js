@@ -76,9 +76,80 @@ export function createAudio() {
     osc.stop(start + seconds + 0.05);
   }
 
+  // ---- Background music: slow synthesised pads, one chord every few
+  // seconds, the harmony darkening when the crisis bites. ----
+  let musicTimer = null;
+  let musicMode = 'off';
+  let musicStep = 0;
+  const CHORDS = {
+    menu: [
+      [130.8, 196.0, 261.6, 329.6], // Cmaj7, low and warm
+      [110.0, 164.8, 220.0, 261.6], // Am7
+      [87.3, 130.8, 174.6, 220.0], // Fmaj7
+      [98.0, 146.8, 196.0, 246.9], // G
+    ],
+    calm: [
+      [130.8, 196.0, 261.6, 329.6],
+      [98.0, 146.8, 196.0, 293.7],
+      [110.0, 164.8, 220.0, 329.6],
+      [87.3, 130.8, 174.6, 261.6],
+    ],
+    crisis: [
+      [110.0, 164.8, 220.0, 261.6], // Am
+      [87.3, 130.8, 174.6, 207.7], // F with a flat six: unease
+      [110.0, 164.8, 220.0, 311.1], // Am with a flat nine
+      [82.4, 123.5, 164.8, 246.9], // E: the unresolved one
+    ],
+    approach: [
+      [130.8, 196.0, 261.6, 329.6],
+      [110.0, 164.8, 220.0, 261.6],
+      [98.0, 146.8, 196.0, 246.9],
+      [130.8, 196.0, 261.6, 392.0], // resolves upward, like a glidepath
+    ],
+  };
+
+  function playChord(freqs, seconds, volume) {
+    if (!ctx || muted) return;
+    for (const freq of freqs) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const now = ctx.currentTime;
+      osc.type = 'triangle';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(volume, now + seconds * 0.35);
+      gain.gain.linearRampToValueAtTime(0, now + seconds);
+      osc.connect(gain);
+      gain.connect(master);
+      osc.start(now);
+      osc.stop(now + seconds + 0.05);
+    }
+  }
+
+  /** Switch the pad: 'menu' | 'calm' | 'crisis' | 'approach' | 'off'. */
+  function setMusic(mode) {
+    if (mode === musicMode) return;
+    musicMode = mode;
+    musicStep = 0;
+    if (musicTimer) {
+      clearInterval(musicTimer);
+      musicTimer = null;
+    }
+    if (mode === 'off' || !CHORDS[mode]) return;
+    const tick = () => {
+      if (!ctx) return;
+      const chords = CHORDS[musicMode];
+      playChord(chords[musicStep % chords.length], 4.6, musicMode === 'crisis' ? 0.05 : 0.04);
+      musicStep++;
+    };
+    tick();
+    musicTimer = setInterval(tick, 4200);
+  }
+
   return {
     init,
     setEngine,
+    setMusic,
     /** A cockpit switch being thrown. */
     click() {
       tone(1800, 0.05, 'square', 0.12);

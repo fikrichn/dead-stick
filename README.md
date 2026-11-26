@@ -37,6 +37,25 @@ Fully offline: Three.js is vendored under `game/vendor/`, the world,
 cockpit and every sound are procedural (Web Audio synthesis), and no
 file in the game ever makes a network request.
 
+**The full experience**
+
+- **Menu** — New Game, Continue (a flight in progress is autosaved),
+  How to Play, and Exit, over the live cockpit.
+- **Cutscene** — every New Game opens on the flight deck in the last
+  calm minute: the radio call, the captain's hand on his chest, the
+  slump over the yoke. Skippable.
+- **Terrain** — a procedural heightmap coastline: rolling patchwork
+  hills, a cratered volcano with a smoke column, a lighthouse island,
+  and the graded-flat airfield at Port Alba.
+- **Progress card** — distance to runway 27, above/below the descent
+  profile, ETA, and the **sim gears** (×1/×2/×4). Linger at ×4 and
+  turbulence arrives as a fifth emergency: drop back to ×1 and ride
+  it out.
+- **Music** — a synthesised pad score that follows the story: calm
+  chords in cruise, darker harmony while a system burns.
+- **End screens** — landing or wreck, you choose: fly again, back to
+  the menu, or exit.
+
 **Controls**
 
 | Input | Action |
@@ -49,6 +68,8 @@ file in the game ever makes a network request.
 | SPACE | Speedbrakes (steepen the descent) |
 | G | Landing gear |
 | C | Tail camera |
+| − / = | Sim gear down / up (×1, ×2, ×4) |
+| P or Esc | Pause |
 | M | Mute |
 
 ## Layout
