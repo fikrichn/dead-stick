@@ -60,14 +60,16 @@ export function createInput(canvas) {
 
   canvas.addEventListener('pointerup', (event) => {
     dragging = false;
-    if (dragMoved < 6) {
-      // A click is not a look: give the camera back to where the
-      // press began, so working a lever never walks the view away.
-      if (lookAtPress) {
-        look.yawDeg = lookAtPress.yawDeg;
-        look.pitchDeg = lookAtPress.pitchDeg;
-      }
-      clicks.push({ x: event.clientX, y: event.clientY });
+    if (dragMoved < 24) {
+      // A click, not a look-drag. It carries where the camera was
+      // when the press began: if the click lands on a control, the
+      // game gives that camera back, so working a lever — even with
+      // a pushing motion — never walks the view away.
+      clicks.push({
+        x: event.clientX, y: event.clientY, moved: dragMoved,
+        lookYaw: lookAtPress ? lookAtPress.yawDeg : look.yawDeg,
+        lookPitch: lookAtPress ? lookAtPress.pitchDeg : look.pitchDeg,
+      });
     }
     lookAtPress = null;
   });

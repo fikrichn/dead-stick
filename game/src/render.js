@@ -242,7 +242,7 @@ export function createCockpit() {
   group.add(fireLabel);
   const fireHandleMat = basic('#c0271b');
   const fireHandle = box(0.3, 0.15, 0.12, '#c0271b', -1.32, 0.28, 4.78, group, fireHandleMat);
-  hitbox('fireExt', 'Pull the ENG 1 fire handle — discharge the extinguisher', 0.5, 0.36, 0.4, -1.32, 0.28, 4.7);
+  hitbox('fireExt', 'Pull the ENG 1 fire handle — discharge the extinguisher', 0.36, 0.3, 0.26, -1.32, 0.28, 4.76);
   const fireIcon = iconPlane(0.15, drawFlame);
   fireIcon.position.set(-1.32, 0.57, 4.73);
   group.add(fireIcon);
@@ -254,7 +254,7 @@ export function createCockpit() {
   const restartLabel = labelPlane('RESTART', 0.4, 0.1, '#b9c9b9', '#141a14', 46);
   restartLabel.position.set(-1.32, -0.2, 4.735);
   group.add(restartLabel);
-  hitbox('restart', 'Press ENG 1 RESTART', 0.44, 0.4, 0.4, -1.32, -0.02, 4.7);
+  hitbox('restart', 'Press ENG 1 RESTART', 0.32, 0.3, 0.26, -1.32, -0.02, 4.76);
   const restartIcon = iconPlane(0.13, drawRestart);
   restartIcon.position.set(-1.58, -0.02, 4.73);
   group.add(restartIcon);
@@ -294,7 +294,7 @@ export function createCockpit() {
   // --- Master warning button, front and centre ---
   const masterMat = basic('#571512');
   box(0.4, 0.17, 0.1, '#571512', -0.62, 0.44, 4.78, group, masterMat);
-  hitbox('master', 'Master warning — check the systems screen', 0.56, 0.34, 0.4, -0.62, 0.44, 4.7);
+  hitbox('master', 'Master warning — check the systems screen', 0.42, 0.26, 0.26, -0.62, 0.44, 4.76);
 
   // --- Gear lever and its three green lights (right of the EICAS) ---
   const gearLabel = labelPlane('GEAR', 0.4, 0.11, '#cfd6dd', '#1a1e24', 48);
@@ -315,7 +315,7 @@ export function createCockpit() {
   gearLever.add(gearKnob);
   gearLever.position.set(1.38, -0.24, 4.8);
   group.add(gearLever);
-  hitbox('gear', 'Landing gear lever — click to lower or raise the gear (or press G)', 0.3, 0.55, 0.34, 1.38, -0.05, 4.74);
+  hitbox('gear', 'Landing gear lever — click to lower or raise the gear (or press G)', 0.24, 0.5, 0.26, 1.38, -0.05, 4.76);
   const gearIcon = iconPlane(0.13, drawWheel);
   gearIcon.position.set(1.05, 0.46, 4.73);
   group.add(gearIcon);
@@ -326,7 +326,7 @@ export function createCockpit() {
   const oxyLabel = labelPlane('OXY MASK', 0.42, 0.1, '#e8cf8a', '#1f1a10', 42);
   oxyLabel.position.set(1.12, -0.42, 4.735);
   group.add(oxyLabel);
-  hitbox('oxygen', 'Deploy the oxygen masks', 0.34, 0.3, 0.3, 1.12, -0.26, 4.74);
+  hitbox('oxygen', 'Deploy the oxygen masks', 0.26, 0.22, 0.22, 1.12, -0.24, 4.78);
   const oxyIcon = iconPlane(0.11, drawMask);
   oxyIcon.position.set(1.12, -0.24, 4.845);
   group.add(oxyIcon);
@@ -335,7 +335,7 @@ export function createCockpit() {
   const crossLabel = labelPlane('X-FEED', 0.42, 0.1, '#a9c4e0', '#10161f', 42);
   crossLabel.position.set(1.62, -0.42, 4.735);
   group.add(crossLabel);
-  hitbox('crossfeed', 'Open the fuel crossfeed valve', 0.34, 0.3, 0.3, 1.62, -0.26, 4.74);
+  hitbox('crossfeed', 'Open the fuel crossfeed valve', 0.26, 0.22, 0.22, 1.62, -0.24, 4.78);
   const crossIcon = iconPlane(0.11, drawCrossfeed);
   crossIcon.position.set(1.62, -0.24, 4.845);
   group.add(crossIcon);
@@ -368,7 +368,7 @@ export function createCockpit() {
     bl.position.set(-0.66 + i * 0.44, -0.3, 0.1);
     bl.rotation.x = -0.5;
     overhead.add(bl);
-    const hb = hitbox(`breaker${i}`, `Reset the ${breakerNames[i]} circuit breaker`, 0.4, 0.44, 0.4, 0, 0, 0, overhead);
+    const hb = hitbox(`breaker${i}`, `Reset the ${breakerNames[i]} circuit breaker`, 0.3, 0.26, 0.24, 0, 0, 0, overhead);
     hb.position.set(-0.66 + i * 0.44, -0.12, 0.12);
   }
 
@@ -452,8 +452,8 @@ export function createCockpit() {
   simPlus.position.set(0.14, -0.26, 5.9);
   simPlus.rotation.x = -0.9;
   group.add(simPlus);
-  hitbox('simDown', 'SIM GEAR down — time steps slower (or press −)', 0.26, 0.5, 0.4, -0.1, -0.35, 6.12);
-  hitbox('simUp', 'SIM GEAR up — time steps faster (or press =). Linger at x4 and the air turns rough', 0.26, 0.5, 0.4, 0.14, -0.35, 6.12);
+  hitbox('simDown', 'SIM GEAR down — time steps slower (or press −)', 0.24, 0.44, 0.34, -0.1, -0.35, 6.12);
+  hitbox('simUp', 'SIM GEAR up — time steps faster (or press =). Linger at x4 and the air turns rough', 0.24, 0.44, 0.34, 0.14, -0.35, 6.12);
 
   // The speedbrake lever, left of the throttles: pull it and she
   // steepens like a brick — the only way down from a high approach.
@@ -468,7 +468,7 @@ export function createCockpit() {
   sbLabel.position.set(-0.32, -0.3, 5.9);
   sbLabel.rotation.x = -0.9;
   group.add(sbLabel);
-  hitbox('speedbrake', 'Speedbrake lever — steepen the descent (or press SPACE)', 0.3, 0.5, 0.4, -0.34, -0.35, 6.12);
+  hitbox('speedbrake', 'Speedbrake lever — steepen the descent (or press SPACE)', 0.26, 0.44, 0.34, -0.36, -0.35, 6.12);
 
   const trimWheel = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.028, 8, 20), flat('#101216'));
   trimWheel.position.set(0.34, -0.62, 6.0);
@@ -497,7 +497,7 @@ export function createCockpit() {
   maydayLabel.position.set(0, -0.3, 5.5);
   maydayLabel.rotation.x = -0.9;
   group.add(maydayLabel);
-  hitbox('mayday', 'Press the MAYDAY radio — tell Port Alba you are coming in', 0.4, 0.22, 0.36, 0, -0.42, 5.55);
+  hitbox('mayday', 'Press the MAYDAY radio — tell Port Alba you are coming in', 0.36, 0.18, 0.32, 0, -0.42, 5.55);
   const radioIcon = iconPlane(0.17, drawRadio);
   radioIcon.position.set(0, -0.29, 5.32);
   radioIcon.rotation.x = -0.9;

@@ -1030,7 +1030,15 @@ function frame(now) {
         -(click.y / window.innerHeight) * 2 + 1,
       );
       const hit = actionAt(ndc) || hovered;
-      if (hit) doAction(hit.action);
+      if (hit) {
+        // The click found its control: the press was work, not a
+        // look, so hand the camera back to where the press began.
+        if (typeof click.lookYaw === 'number') {
+          input.look.yawDeg = click.lookYaw;
+          input.look.pitchDeg = click.lookPitch;
+        }
+        doAction(hit.action);
+      }
     }
   } else {
     promptLine.textContent = tailCam ? 'TAIL CAMERA — press C to return to the seat' : '';
