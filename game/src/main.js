@@ -115,6 +115,8 @@ function freshState() {
     bankDeg: 0,
     pitchDeg: 0,
     pitchInput: 0,
+    pitchSmooth: 0,
+    glideSmooth: DESCENT.glideDegBothEngines,
     sinkFtMin: 1500,
     throttle: 0.55,
     distanceM: DESCENT.startDistanceM,
@@ -434,7 +436,13 @@ function step(dt) {
   // Flight controls.
   const bankInput = (held(input, 'ArrowLeft', 'KeyA') ? -1 : 0) + (held(input, 'ArrowRight', 'KeyD') ? 1 : 0);
   const pitchHeld = (held(input, 'ArrowUp', 'KeyW') ? 1 : 0) + (held(input, 'ArrowDown', 'KeyS') ? -1 : 0);
-  s.pitchInput = pitchHeld;
+  // Pitch is flown through a smoothing lag, the way a real airframe
+  // answers the yoke: the nose, the glide angle and the speed all ease
+  // toward the commanded value instead of snapping in one step, which
+  // is what made the up-and-down motion feel notchy.
+  s.pitchSmooth += (pitchHeld - s.pitchSmooth) * Math.min(1, dt * 3.4);
+  if (Math.abs(s.pitchSmooth) < 0.001 && pitchHeld === 0) s.pitchSmooth = 0;
+  s.pitchInput = s.pitchSmooth;
   if (held(input, 'KeyR')) s.throttle = Math.min(1, s.throttle + dt * 0.45);
   if (held(input, 'KeyF')) s.throttle = Math.max(0, s.throttle - dt * 0.45);
   let bankTarget = bankInput * 32;
@@ -442,24 +450,27 @@ function step(dt) {
   s.bankDeg += (bankTarget - s.bankDeg) * Math.min(1, dt * 2.4);
   s.lateralM += s.bankDeg * 2.1 * dt * (s.phase === 'approach' ? 1.6 : 1);
   s.headingDeg = 270 + s.bankDeg * 0.25;
-  s.pitchDeg = pitchHeld * 4 - 2;
+  s.pitchDeg = s.pitchSmooth * 4 - 2;
 
   // Engines, speed, sink.
   const enginesAlive = (s.engLeft === 'ok' ? 1 : 0) + 1; // engine 2 never fails: mercy
   const thrust = enginesAlive / 2;
   const targetSpeed = (105 + s.throttle * 175 * (0.45 + 0.55 * thrust)) * (s.speedbrake ? 0.92 : 1);
   s.speedKt += (targetSpeed - s.speedKt) * Math.min(1, dt * 0.35);
-  s.speedKt -= pitchHeld * 9 * dt;
+  s.speedKt -= s.pitchSmooth * 9 * dt;
   // The glide angle is the whole descent model: engines set the base,
   // drag (gear, speedbrakes) steepens it, and the yoke trades angle
   // against speed — pitch down to dive at the runway, pitch up to
   // stretch the glide and pay for it in knots.
   const baseGlideDeg = enginesAlive === 2 ? DESCENT.glideDegBothEngines : DESCENT.glideDegOneEngine;
-  const glideDeg = baseGlideDeg
+  const glideTarget = baseGlideDeg
     + (s.gearDown ? DESCENT.dragDegGear : 0)
     + (s.speedbrake ? DESCENT.dragDegSpeedbrake : 0)
-    - pitchHeld * DESCENT.pitchAuthorityDeg;
-  let sink = s.speedKt * 0.5144 * Math.tan((Math.max(0.5, glideDeg) * Math.PI) / 180) * 196.85;
+    - s.pitchSmooth * DESCENT.pitchAuthorityDeg;
+  // The glide itself eases too: gear and speedbrakes bite over a
+  // second or so, they do not teleport the descent rate.
+  s.glideSmooth += (glideTarget - s.glideSmooth) * Math.min(1, dt * 1.6);
+  let sink = s.speedKt * 0.5144 * Math.tan((Math.max(0.5, s.glideSmooth) * Math.PI) / 180) * 196.85;
   if (s.speedKt < 105) sink += (105 - s.speedKt) * 26; // the stall bites
   s.sinkFtMin = sink;
   s.altFt -= (sink / 60) * dt;
