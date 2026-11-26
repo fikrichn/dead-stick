@@ -1,0 +1,460 @@
+// The cockpit of DEAD STICK, drawn with Three.js primitives around the
+// pilot's seat: a main panel with two live glass screens (canvas
+// textures), a yoke and throttles that move with the controls, an
+// overhead breaker panel, the engine-fire handle, the gear lever — and
+// the captain, slumped in the left seat, who is the whole reason you
+// are flying. Every control is a real mesh with an invisible, slightly
+// enlarged hitbox, so a mouse click lands on it first try.
+
+import { FLIGHT, PALETTE } from './config.js';
+
+const flat = (color) => new THREE.MeshLambertMaterial({ color });
+const basic = (color) => new THREE.MeshBasicMaterial({ color });
+
+function box(w, h, d, color, x, y, z, parent, material) {
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material || flat(color));
+  mesh.position.set(x, y, z);
+  parent.add(mesh);
+  return mesh;
+}
+
+function canvasTexture(width, height) {
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  return { canvas, ctx: canvas.getContext('2d'), texture: new THREE.CanvasTexture(canvas) };
+}
+
+function labelPlane(text, width, height, fg = '#cfd6dd', bg = '#1a1e24', fontPx = 44) {
+  const { canvas, ctx, texture } = canvasTexture(512, 128);
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, 512, 128);
+  ctx.fillStyle = fg;
+  ctx.font = `bold ${fontPx}px system-ui, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, 256, 68);
+  const mesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(width, height),
+    new THREE.MeshBasicMaterial({ map: texture }),
+  );
+  return mesh;
+}
+
+export function createCockpit() {
+  const group = new THREE.Group();
+  // The flight deck sits at the FRONT of the airframe, a few metres
+  // behind the radome — not in the middle of the tube. Shifting the
+  // whole cockpit forward in the aircraft is what lets the pilot see
+  // the runway over a nose that falls away below the eye line.
+  group.position.z = -13.5;
+  const interactables = [];
+  const PANEL = '#232830';
+  const DARK = '#14171c';
+
+  function hitbox(action, label, w, h, d, x, y, z, parent) {
+    const mesh = new THREE.Mesh(
+      new THREE.BoxGeometry(w, h, d),
+      new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }),
+    );
+    mesh.position.set(x, y, z);
+    mesh.userData.action = action;
+    (parent || group).add(mesh);
+    interactables.push({ mesh, action, label });
+    return mesh;
+  }
+
+  // --- Shell: floor, walls with window bands, roof, windshield frames ---
+  box(3.9, 0.12, 6.4, DARK, 0, -1.18, 5.4, group);
+  box(3.9, 0.14, 6.4, '#1b1f26', 0, 2.12, 5.4, group); // roof
+  for (const side of [-1, 1]) {
+    box(0.12, 1.5, 6.4, PANEL, side * 1.92, -0.42, 5.4, group); // below windows
+    box(0.12, 0.55, 6.4, PANEL, side * 1.92, 1.85, 5.4, group); // above windows
+    box(0.12, 2.7, 0.18, PANEL, side * 1.92, 0.75, 4.15, group); // front pillar
+    box(0.12, 2.7, 0.18, PANEL, side * 1.92, 0.75, 6.6, group); // rear pillar
+  }
+  // Windshield: two faint panes and their frames, low over the panel.
+  for (const side of [-1, 1]) {
+    const pane = new THREE.Mesh(
+      new THREE.PlaneGeometry(1.72, 1.25),
+      new THREE.MeshBasicMaterial({ color: '#bcd9ea', transparent: true, opacity: 0.07, depthWrite: false }),
+    );
+    pane.position.set(side * 0.88, 1.18, 4.32);
+    pane.rotation.x = -0.32;
+    pane.rotation.y = side * -0.1;
+    group.add(pane);
+  }
+  box(0.09, 1.5, 0.09, PANEL, 0, 1.16, 4.28, group); // centre post
+
+  // --- Main instrument panel and glareshield ---
+  const panel = box(3.7, 1.3, 0.2, PANEL, 0, -0.12, 4.62, group);
+  panel.rotation.x = -0.06;
+  box(3.7, 0.1, 0.62, DARK, 0, 0.56, 4.78, group); // glareshield
+  box(3.7, 0.45, 0.16, DARK, 0, -0.95, 4.66, group); // knee bolster closes the under-panel gap
+
+  // --- The two glass screens ---
+  const pfd = canvasTexture(512, 400);
+  const pfdMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.86, 0.67), new THREE.MeshBasicMaterial({ map: pfd.texture }));
+  pfdMesh.position.set(-0.55, 0.02, 4.735);
+  group.add(pfdMesh);
+  const eicas = canvasTexture(512, 400);
+  const eicasMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.86, 0.67), new THREE.MeshBasicMaterial({ map: eicas.texture }));
+  eicasMesh.position.set(0.48, 0.02, 4.735);
+  group.add(eicasMesh);
+  const placard = labelPlane(`${FLIGHT.callsign}  •  ${FLIGHT.aircraft}`, 0.86, 0.2, '#8fa3ad', '#10131a', 40);
+  placard.position.set(0.48, 0.4, 4.735);
+  group.add(placard);
+
+  // --- Engine fire handle and restart button (left of the PFD) ---
+  const fireLabel = labelPlane('ENG 1 FIRE', 0.44, 0.11, '#ff8a7a', '#2a1210', 46);
+  fireLabel.position.set(-1.32, 0.46, 4.735);
+  group.add(fireLabel);
+  const fireHandleMat = basic('#c0271b');
+  const fireHandle = box(0.3, 0.15, 0.12, '#c0271b', -1.32, 0.28, 4.78, group, fireHandleMat);
+  hitbox('fireExt', 'Pull the ENG 1 fire handle — discharge the extinguisher', 0.5, 0.36, 0.4, -1.32, 0.28, 4.7);
+  const restartMat = basic('#3a4a3a');
+  const restartBtn = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.07, 16), restartMat);
+  restartBtn.rotation.x = Math.PI / 2;
+  restartBtn.position.set(-1.32, -0.02, 4.78);
+  group.add(restartBtn);
+  const restartLabel = labelPlane('RESTART', 0.4, 0.1, '#b9c9b9', '#141a14', 46);
+  restartLabel.position.set(-1.32, -0.2, 4.735);
+  group.add(restartLabel);
+  hitbox('restart', 'Press ENG 1 RESTART', 0.44, 0.4, 0.4, -1.32, -0.02, 4.7);
+
+  // --- Master warning button, front and centre ---
+  const masterMat = basic('#571512');
+  box(0.4, 0.17, 0.1, '#571512', -0.62, 0.44, 4.78, group, masterMat);
+  hitbox('master', 'Master warning — check the systems screen', 0.56, 0.34, 0.4, -0.62, 0.44, 4.7);
+
+  // --- Gear lever and its three green lights (right of the EICAS) ---
+  const gearLabel = labelPlane('GEAR', 0.4, 0.11, '#cfd6dd', '#1a1e24', 48);
+  gearLabel.position.set(1.38, 0.46, 4.735);
+  group.add(gearLabel);
+  const gearLights = [];
+  for (let i = 0; i < 3; i++) {
+    const light = new THREE.Mesh(new THREE.SphereGeometry(0.045, 10, 8), basic('#274435'));
+    light.position.set(1.24 + i * 0.14, 0.32, 4.76);
+    group.add(light);
+    gearLights.push(light);
+  }
+  const gearLever = new THREE.Group();
+  const gearArm = box(0.07, 0.42, 0.07, '#c8ccd0', 0, 0.16, 0, gearLever);
+  gearArm.rotation.x = 0.2;
+  const gearKnob = new THREE.Mesh(new THREE.SphereGeometry(0.075, 10, 8), basic('#e8e8e8'));
+  gearKnob.position.set(0, 0.36, 0.04);
+  gearLever.add(gearKnob);
+  gearLever.position.set(1.38, -0.24, 4.8);
+  group.add(gearLever);
+  hitbox('gear', 'Landing gear lever — click to lower or raise the gear (or press G)', 0.5, 0.66, 0.44, 1.38, -0.02, 4.7);
+
+  // --- Oxygen and crossfeed (below the gear) ---
+  const oxyMat = basic('#8a6a1c');
+  box(0.2, 0.13, 0.09, '#8a6a1c', 1.12, -0.24, 4.78, group, oxyMat);
+  const oxyLabel = labelPlane('OXY MASK', 0.42, 0.1, '#e8cf8a', '#1f1a10', 42);
+  oxyLabel.position.set(1.12, -0.42, 4.735);
+  group.add(oxyLabel);
+  hitbox('oxygen', 'Deploy the oxygen masks', 0.44, 0.36, 0.4, 1.12, -0.24, 4.7);
+  const crossMat = basic('#31435a');
+  box(0.2, 0.13, 0.09, '#31435a', 1.62, -0.24, 4.78, group, crossMat);
+  const crossLabel = labelPlane('X-FEED', 0.42, 0.1, '#a9c4e0', '#10161f', 42);
+  crossLabel.position.set(1.62, -0.42, 4.735);
+  group.add(crossLabel);
+  hitbox('crossfeed', 'Open the fuel crossfeed valve', 0.44, 0.36, 0.4, 1.62, -0.24, 4.7);
+
+  // --- Overhead panel: four circuit breakers ---
+  const overhead = new THREE.Group();
+  const ohPanel = box(2.3, 0.85, 0.14, '#1d2129', 0, 0, 0, overhead);
+  ohPanel.rotation.x = 0.5;
+  overhead.position.set(0, 2.18, 6.0);
+  overhead.rotation.x = 0.55;
+  group.add(overhead);
+  const ohLabel = labelPlane('CIRCUIT BREAKERS', 0.9, 0.14, '#cfd6dd', '#14171c', 40);
+  ohLabel.position.set(0, 0.28, 0.1);
+  ohLabel.rotation.x = -0.5;
+  overhead.add(ohLabel);
+  const breakerMeshes = [];
+  const breakerNames = ['PFD', 'HYD', 'CABIN', 'FUEL'];
+  for (let i = 0; i < 4; i++) {
+    const breaker = box(0.1, 0.15, 0.08, '#d8b93a', -0.66 + i * 0.44, -0.12, 0.1, overhead, basic('#d8b93a'));
+    breakerMeshes.push(breaker);
+    const bl = labelPlane(breakerNames[i], 0.34, 0.09, '#9aa4ad', '#14171c', 44);
+    bl.position.set(-0.66 + i * 0.44, -0.3, 0.1);
+    bl.rotation.x = -0.5;
+    overhead.add(bl);
+    const hb = hitbox(`breaker${i}`, `Reset the ${breakerNames[i]} circuit breaker`, 0.4, 0.44, 0.4, 0, 0, 0, overhead);
+    hb.position.set(-0.66 + i * 0.44, -0.12, 0.12);
+  }
+
+  // --- Yokes: yours moves with the controls; his hangs where it fell ---
+  function yoke(x, z) {
+    const g = new THREE.Group();
+    const column = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.055, 0.75, 10), flat('#2c313a'));
+    column.rotation.x = 1.1;
+    column.position.set(0, -0.1, 0.25);
+    g.add(column);
+    const bar = box(0.52, 0.07, 0.09, '#191d23', 0, 0.14, 0, g);
+    void bar;
+    for (const s of [-1, 1]) {
+      const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.24, 8), flat('#191d23'));
+      grip.position.set(s * 0.26, 0.05, 0);
+      g.add(grip);
+    }
+    g.position.set(x, -0.28, z);
+    group.add(g);
+    return g;
+  }
+  const yokeMine = yoke(0.55, 5.35);
+  const yokeHis = yoke(-0.62, 5.35);
+  yokeHis.rotation.z = 0.5;
+  yokeHis.position.y = -0.42;
+
+  // --- Centre pedestal and throttle levers ---
+  box(0.62, 0.75, 1.9, '#1d2129', 0, -0.85, 5.9, group);
+  const throttleLevers = [];
+  for (const dx of [-0.12, 0.12]) {
+    const lever = new THREE.Group();
+    const arm = box(0.06, 0.42, 0.06, '#c8ccd0', 0, 0.2, 0, lever);
+    void arm;
+    const knob = box(0.11, 0.09, 0.16, '#101216', 0, 0.42, 0, lever);
+    void knob;
+    lever.position.set(dx, -0.52, 6.15);
+    group.add(lever);
+    throttleLevers.push(lever);
+  }
+  // The speedbrake lever, left of the throttles: pull it and she
+  // steepens like a brick — the only way down from a high approach.
+  const speedbrakeLever = new THREE.Group();
+  const sbArm = box(0.06, 0.36, 0.06, '#c8ccd0', 0, 0.17, 0, speedbrakeLever);
+  void sbArm;
+  const sbKnob = box(0.13, 0.08, 0.14, '#8a2f1b', 0, 0.37, 0, speedbrakeLever);
+  void sbKnob;
+  speedbrakeLever.position.set(-0.32, -0.52, 6.15);
+  group.add(speedbrakeLever);
+  const sbLabel = labelPlane('SPOILERS', 0.36, 0.1, '#e0a58f', '#1c130e', 42);
+  sbLabel.position.set(-0.32, -0.3, 5.9);
+  sbLabel.rotation.x = -0.9;
+  group.add(sbLabel);
+  hitbox('speedbrake', 'Speedbrake lever — steepen the descent (or press SPACE)', 0.44, 0.44, 0.5, -0.32, -0.4, 6.05);
+
+  const maydayMat = basic('#7a1710');
+  box(0.34, 0.12, 0.3, '#7a1710', 0, -0.42, 5.55, group, maydayMat);
+  const maydayLabel = labelPlane('MAYDAY', 0.36, 0.1, '#ff9a8a', '#200d0b', 46);
+  maydayLabel.position.set(0, -0.3, 5.5);
+  maydayLabel.rotation.x = -0.9;
+  group.add(maydayLabel);
+  hitbox('mayday', 'Press the MAYDAY radio — tell Port Alba you are coming in', 0.52, 0.4, 0.5, 0, -0.4, 5.55);
+
+  // --- Seats and the captain ---
+  function seat(x) {
+    box(0.62, 0.14, 0.6, '#2a3242', x, -0.78, 7.0, group);
+    const back = box(0.62, 1.25, 0.14, '#2a3242', x, -0.1, 7.32, group);
+    back.rotation.x = 0.12;
+    box(0.4, 0.3, 0.1, '#39445c', x, 0.62, 7.42, group);
+  }
+  seat(0.55);
+  seat(-0.62);
+  const captain = new THREE.Group();
+  const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.21, 0.26, 0.72, 10), flat('#22304d'));
+  torso.position.y = 0.36;
+  captain.add(torso);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 10), flat('#d9a37e'));
+  head.position.set(0, 0.82, 0.1);
+  captain.add(head);
+  const capTop = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.07, 12), flat('#16233c'));
+  capTop.position.set(0, 0.94, 0.1);
+  captain.add(capTop);
+  for (const s of [-1, 1]) {
+    const armMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.05, 0.6, 8), flat('#22304d'));
+    armMesh.position.set(s * 0.3, 0.3, 0.12);
+    armMesh.rotation.z = s * 0.5;
+    armMesh.rotation.x = 0.7;
+    captain.add(armMesh);
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.06, 0.55, 8), flat('#1a2438'));
+    leg.position.set(s * 0.13, -0.05, -0.3);
+    leg.rotation.x = Math.PI / 2.3;
+    captain.add(leg);
+  }
+  captain.position.set(-0.62, -0.72, 6.85);
+  captain.rotation.x = 0.52; // slumped forward over his yoke
+  captain.rotation.z = 0.18;
+  group.add(captain);
+
+  // --- Oxygen masks: stowed above, they drop when deployed ---
+  const masks = new THREE.Group();
+  for (const x of [-0.62, 0.55]) {
+    const cup = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.14, 10), basic('#e8c832'));
+    cup.position.set(x, 0, 6.3);
+    masks.add(cup);
+    const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.5, 6), flat('#888'));
+    tube.position.set(x, 0.3, 6.3);
+    masks.add(tube);
+  }
+  masks.position.y = 1.95;
+  masks.visible = false;
+  group.add(masks);
+
+  // --- Cabin light: warm in health, red and dim on emergency power ---
+  const cabinLight = new THREE.PointLight(0xfff1d6, 0.85, 9);
+  cabinLight.position.set(0, 1.9, 6.3);
+  group.add(cabinLight);
+
+  // ---------- The two glass screens ----------
+  function drawPFD(s) {
+    const g = pfd.ctx;
+    const W = 512;
+    const H = 400;
+    g.fillStyle = s.power === 'emergency' ? '#160d0d' : '#0a1620';
+    g.fillRect(0, 0, W, H);
+    // Attitude ball: sky and ground that roll and slide with the aircraft.
+    g.save();
+    g.beginPath();
+    g.rect(56, 40, 250, 250);
+    g.clip();
+    g.translate(181, 165);
+    g.rotate((-s.bankDeg * Math.PI) / 180);
+    g.translate(0, s.pitchDeg * 3.2);
+    g.fillStyle = '#2e7fc2';
+    g.fillRect(-260, -260, 520, 260);
+    g.fillStyle = '#7a5230';
+    g.fillRect(-260, 0, 520, 260);
+    g.fillStyle = '#fff';
+    g.fillRect(-260, -2, 520, 4);
+    g.restore();
+    g.strokeStyle = '#e8c832';
+    g.lineWidth = 5;
+    g.beginPath();
+    g.moveTo(121, 165);
+    g.lineTo(161, 165);
+    g.lineTo(181, 182);
+    g.lineTo(201, 165);
+    g.lineTo(241, 165);
+    g.stroke();
+    // Digital readouts: the numbers the bounty asks the HUD to show.
+    g.fillStyle = '#0e2231';
+    g.fillRect(330, 40, 160, 250);
+    g.fillStyle = PALETTE.screenGlow;
+    g.font = 'bold 30px system-ui, sans-serif';
+    g.textAlign = 'left';
+    g.fillText('ALT ft', 344, 84);
+    g.font = 'bold 52px system-ui, sans-serif';
+    g.fillText(String(Math.max(0, Math.round(s.altFt))), 344, 140);
+    g.font = 'bold 30px system-ui, sans-serif';
+    g.fillText('SPD kt', 344, 196);
+    g.font = 'bold 52px system-ui, sans-serif';
+    g.fillStyle = s.speedKt > 165 && s.altFt < 3000 ? '#ff5a4a' : PALETTE.screenGlow;
+    g.fillText(String(Math.round(s.speedKt)), 344, 252);
+    g.fillStyle = '#0e2231';
+    g.fillRect(56, 312, 434, 62);
+    g.fillStyle = PALETTE.screenGlow;
+    g.font = 'bold 40px system-ui, sans-serif';
+    g.textAlign = 'center';
+    g.fillText(`HDG ${String(Math.round(s.headingDeg)).padStart(3, '0')}°`, 181, 356);
+    g.font = 'bold 30px system-ui, sans-serif';
+    g.textAlign = 'left';
+    g.fillText(`VS ${Math.round(s.sinkFtMin)}`, 330, 356);
+    pfd.texture.needsUpdate = true;
+  }
+
+  function drawEICAS(s) {
+    const g = eicas.ctx;
+    const W = 512;
+    const H = 400;
+    g.fillStyle = s.power === 'emergency' ? '#170d0d' : '#0a141d';
+    g.fillRect(0, 0, W, H);
+    g.font = 'bold 27px system-ui, sans-serif';
+    g.textAlign = 'left';
+    g.fillStyle = '#9fd8c9';
+    g.fillText(`${FLIGHT.callsign} — SYSTEMS`, 22, 40);
+    const engText = (e) => (e === 'fire' ? 'FIRE' : e === 'out' ? 'OUT' : e === 'restarting' ? 'SPOOL…' : 'RUNNING');
+    const engColor = (e) => (e === 'fire' ? '#ff5a4a' : e === 'out' ? '#ffb43a' : '#35e08a');
+    g.font = 'bold 30px system-ui, sans-serif';
+    g.fillStyle = '#cfd6dd';
+    g.fillText('ENG 1', 22, 92);
+    g.fillStyle = engColor(s.engLeft);
+    g.fillText(engText(s.engLeft), 150, 92);
+    g.fillStyle = '#cfd6dd';
+    g.fillText('ENG 2', 22, 134);
+    g.fillStyle = engColor(s.engRight);
+    g.fillText(engText(s.engRight), 150, 134);
+    g.fillStyle = '#cfd6dd';
+    g.fillText('GEAR', 22, 176);
+    g.fillStyle = s.gearDown ? '#35e08a' : '#ff5a4a';
+    g.fillText(s.gearDown ? 'DOWN — 3 GREEN' : 'UP', 150, 176);
+    g.fillStyle = '#cfd6dd';
+    g.fillText('SPLR', 330, 176);
+    g.fillStyle = s.speedbrake ? '#ffb43a' : '#5a6a72';
+    g.fillText(s.speedbrake ? 'OUT' : 'IN', 425, 176);
+    g.fillStyle = '#cfd6dd';
+    g.fillText('FUEL', 22, 218);
+    g.fillStyle = s.fuelPct < 25 ? '#ffb43a' : '#35e08a';
+    g.fillText(`${Math.round(s.fuelPct)}%`, 150, 218);
+    g.fillStyle = '#cfd6dd';
+    g.fillText('CABIN', 280, 218);
+    g.fillStyle = s.cabinOk ? '#35e08a' : '#ff5a4a';
+    g.fillText(s.cabinOk ? 'OK' : 'PRESS!', 390, 218);
+    // Hull integrity bar: the price of leaving an emergency unfixed.
+    g.fillStyle = '#cfd6dd';
+    g.fillText('HULL', 22, 262);
+    g.fillStyle = '#26303a';
+    g.fillRect(150, 240, 320, 26);
+    g.fillStyle = s.hull > 50 ? '#35e08a' : s.hull > 25 ? '#ffb43a' : '#ff5a4a';
+    g.fillRect(150, 240, Math.max(0, s.hull) * 3.2, 26);
+    // Distance home and the live instruction line.
+    g.fillStyle = '#9fd8c9';
+    g.font = 'bold 26px system-ui, sans-serif';
+    g.fillText(`PORT ALBA RWY ${FLIGHT.runway}: ${(Math.max(0, s.distanceM) / 1000).toFixed(1)} km`, 22, 306);
+    g.fillStyle = '#ffd76a';
+    g.font = 'bold 25px system-ui, sans-serif';
+    const lines = (s.checklist || []).slice(0, 2);
+    lines.forEach((line, i) => g.fillText(line, 22, 344 + i * 30));
+    eicas.texture.needsUpdate = true;
+  }
+
+  let screenTimer = 0;
+  let blinkTimer = 0;
+  let maskDrop = 0;
+
+  return {
+    group,
+    interactables,
+    update(dt, s) {
+      blinkTimer += dt;
+      const alarm = !!s.event;
+      masterMat.color.setHex(alarm && blinkTimer % 0.7 < 0.38 ? 0xff3b30 : 0x571512);
+      fireHandleMat.color.setHex(s.engLeft === 'fire' && blinkTimer % 0.5 < 0.28 ? 0xff5a3c : 0xc0271b);
+      fireHandle.position.z = s.fireDischarged ? 4.64 : 4.78;
+      restartMat.color.setHex(s.engLeft === 'restarting' ? 0xd8b93a : s.engLeft === 'ok' ? 0x35e08a : 0x3a4a3a);
+      oxyMat.color.setHex(s.oxygenDeployed ? 0x35e08a : 0x8a6a1c);
+      crossMat.color.setHex(s.crossfeedOpen ? 0x35e08a : 0x31435a);
+      maydayMat.color.setHex(s.maydaySent ? 0x35e08a : 0x7a1710);
+      gearLever.rotation.x = s.gearDown ? 0.55 : -0.15;
+      gearLights.forEach((light, i) => {
+        light.material.color.setHex(s.gearDown ? 0x35e08a : s.gearTransit ? 0xffb43a : 0x274435);
+        void i;
+      });
+      breakerMeshes.forEach((breaker, i) => {
+        const on = s.breakers[i];
+        breaker.position.z = on ? 0.1 : 0.02;
+        breaker.material.color.setHex(on ? 0x4a7a5f : 0xd8b93a);
+      });
+      yokeMine.rotation.z = (-s.bankDeg * Math.PI) / 180 * 0.9;
+      yokeMine.position.z = 5.35 + s.pitchInput * 0.09;
+      for (const lever of throttleLevers) lever.rotation.x = -0.25 - s.throttle * 0.65;
+      speedbrakeLever.rotation.x = s.speedbrake ? 0.55 : -0.15;
+      // Oxygen masks swing down in front of the seats once deployed.
+      maskDrop = Math.max(0, Math.min(1, maskDrop + (s.oxygenDeployed ? dt * 1.6 : -dt * 3)));
+      masks.visible = maskDrop > 0.02;
+      masks.position.y = 1.95 - maskDrop * 0.95;
+      masks.rotation.x = Math.sin(maskDrop * Math.PI) * 0.2;
+      cabinLight.intensity = s.power === 'emergency' ? 0.32 : 0.85;
+      cabinLight.color.setHex(s.power === 'emergency' ? 0xff9a7a : 0xfff1d6);
+      screenTimer += dt;
+      if (screenTimer > 0.12) {
+        screenTimer = 0;
+        drawPFD(s);
+        drawEICAS(s);
+      }
+    },
+  };
+}
