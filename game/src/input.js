@@ -21,6 +21,7 @@ export function createInput(canvas) {
   let dragMoved = 0;
   let lastX = 0;
   let lastY = 0;
+  let lookAtPress = null;
 
   window.addEventListener('keydown', (event) => {
     keys.add(event.code);
@@ -40,6 +41,7 @@ export function createInput(canvas) {
     dragMoved = 0;
     lastX = event.clientX;
     lastY = event.clientY;
+    lookAtPress = { yawDeg: look.yawDeg, pitchDeg: look.pitchDeg };
     canvas.setPointerCapture(event.pointerId);
   });
 
@@ -58,7 +60,16 @@ export function createInput(canvas) {
 
   canvas.addEventListener('pointerup', (event) => {
     dragging = false;
-    if (dragMoved < 6) clicks.push({ x: event.clientX, y: event.clientY });
+    if (dragMoved < 6) {
+      // A click is not a look: give the camera back to where the
+      // press began, so working a lever never walks the view away.
+      if (lookAtPress) {
+        look.yawDeg = lookAtPress.yawDeg;
+        look.pitchDeg = lookAtPress.pitchDeg;
+      }
+      clicks.push({ x: event.clientX, y: event.clientY });
+    }
+    lookAtPress = null;
   });
 
   return { keys, pressed, look, clicks };

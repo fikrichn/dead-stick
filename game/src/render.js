@@ -48,6 +48,137 @@ export function createCockpit() {
   // whole cockpit forward in the aircraft is what lets the pilot see
   // the runway over a nose that falls away below the eye line.
   group.position.z = -13.5;
+  // Pictograms drawn on canvas: a picture is faster than a word when
+  // the cockpit is shaking. Each control gets its own little glyph.
+  function iconPlane(size, draw) {
+    const { ctx, texture } = canvasTexture(128, 128);
+    draw(ctx);
+    texture.needsUpdate = true;
+    return new THREE.Mesh(
+      new THREE.PlaneGeometry(size, size),
+      new THREE.MeshBasicMaterial({ map: texture, transparent: true }),
+    );
+  }
+  const drawFlame = (g) => {
+    g.fillStyle = '#ff7a26';
+    g.beginPath();
+    g.moveTo(64, 8);
+    g.bezierCurveTo(96, 52, 104, 70, 104, 88);
+    g.bezierCurveTo(104, 110, 86, 122, 64, 122);
+    g.bezierCurveTo(42, 122, 24, 110, 24, 88);
+    g.bezierCurveTo(24, 70, 36, 54, 48, 40);
+    g.bezierCurveTo(46, 56, 52, 64, 58, 68);
+    g.bezierCurveTo(56, 44, 58, 24, 64, 8);
+    g.fill();
+    g.fillStyle = '#ffd23e';
+    g.beginPath();
+    g.ellipse(64, 94, 15, 22, 0, 0, Math.PI * 2);
+    g.fill();
+  };
+  const drawMask = (g) => {
+    g.strokeStyle = '#e8e8e8';
+    g.lineWidth = 7;
+    g.beginPath();
+    g.moveTo(14, 30);
+    g.lineTo(40, 48);
+    g.moveTo(114, 30);
+    g.lineTo(88, 48);
+    g.stroke();
+    g.fillStyle = '#dfe5ea';
+    g.beginPath();
+    g.moveTo(40, 44);
+    g.bezierCurveTo(40, 30, 88, 30, 88, 44);
+    g.bezierCurveTo(88, 84, 78, 104, 64, 104);
+    g.bezierCurveTo(50, 104, 40, 84, 40, 44);
+    g.fill();
+    g.strokeStyle = '#8a97a3';
+    g.lineWidth = 6;
+    g.beginPath();
+    g.moveTo(64, 104);
+    g.bezierCurveTo(64, 118, 52, 120, 50, 126);
+    g.stroke();
+    g.fillStyle = '#31435a';
+    g.fillRect(50, 58, 28, 7);
+  };
+  const drawCrossfeed = (g) => {
+    g.fillStyle = '#a9c4e0';
+    g.beginPath();
+    g.moveTo(14, 44);
+    g.lineTo(74, 44);
+    g.lineTo(74, 30);
+    g.lineTo(104, 54);
+    g.lineTo(74, 78);
+    g.lineTo(74, 64);
+    g.lineTo(14, 64);
+    g.fill();
+    g.fillStyle = '#5b7d8a';
+    g.beginPath();
+    g.moveTo(114, 84);
+    g.lineTo(54, 84);
+    g.lineTo(54, 70);
+    g.lineTo(24, 94);
+    g.lineTo(54, 118);
+    g.lineTo(54, 104);
+    g.lineTo(114, 104);
+    g.fill();
+  };
+  const drawRadio = (g) => {
+    g.strokeStyle = '#ff9a8a';
+    g.lineWidth = 8;
+    for (const r of [26, 44, 62]) {
+      g.beginPath();
+      g.arc(64, 78, r, -2.35, -0.79);
+      g.stroke();
+    }
+    g.fillStyle = '#ff9a8a';
+    g.beginPath();
+    g.ellipse(64, 82, 13, 13, 0, 0, Math.PI * 2);
+    g.fill();
+    g.fillRect(58, 88, 12, 30);
+  };
+  const drawRestart = (g) => {
+    g.strokeStyle = '#e8e8e8';
+    g.lineWidth = 11;
+    g.beginPath();
+    g.arc(64, 64, 40, 0.7, 5.5);
+    g.stroke();
+    g.fillStyle = '#e8e8e8';
+    g.beginPath();
+    g.moveTo(104, 40);
+    g.lineTo(106, 76);
+    g.lineTo(74, 58);
+    g.fill();
+  };
+  const drawWheel = (g) => {
+    g.fillStyle = '#20262e';
+    g.beginPath();
+    g.ellipse(64, 64, 46, 46, 0, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = '#c8ccd0';
+    g.beginPath();
+    g.ellipse(64, 64, 19, 19, 0, 0, Math.PI * 2);
+    g.fill();
+    g.strokeStyle = '#c8ccd0';
+    g.lineWidth = 8;
+    for (const a of [0, 2.1, 4.2]) {
+      g.beginPath();
+      g.moveTo(64, 64);
+      g.lineTo(64 + Math.cos(a) * 40, 64 + Math.sin(a) * 40);
+      g.stroke();
+    }
+  };
+  const drawBolt = (g) => {
+    g.fillStyle = '#ffd23e';
+    g.beginPath();
+    g.moveTo(72, 6);
+    g.lineTo(30, 74);
+    g.lineTo(56, 74);
+    g.lineTo(44, 122);
+    g.lineTo(98, 50);
+    g.lineTo(70, 50);
+    g.fill();
+  };
+
   const interactables = [];
   const PANEL = '#232830';
   const DARK = '#14171c';
@@ -112,6 +243,9 @@ export function createCockpit() {
   const fireHandleMat = basic('#c0271b');
   const fireHandle = box(0.3, 0.15, 0.12, '#c0271b', -1.32, 0.28, 4.78, group, fireHandleMat);
   hitbox('fireExt', 'Pull the ENG 1 fire handle — discharge the extinguisher', 0.5, 0.36, 0.4, -1.32, 0.28, 4.7);
+  const fireIcon = iconPlane(0.15, drawFlame);
+  fireIcon.position.set(-1.32, 0.57, 4.73);
+  group.add(fireIcon);
   const restartMat = basic('#3a4a3a');
   const restartBtn = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.07, 16), restartMat);
   restartBtn.rotation.x = Math.PI / 2;
@@ -121,6 +255,9 @@ export function createCockpit() {
   restartLabel.position.set(-1.32, -0.2, 4.735);
   group.add(restartLabel);
   hitbox('restart', 'Press ENG 1 RESTART', 0.44, 0.4, 0.4, -1.32, -0.02, 4.7);
+  const restartIcon = iconPlane(0.13, drawRestart);
+  restartIcon.position.set(-1.58, -0.02, 4.73);
+  group.add(restartIcon);
 
   // --- Standby horizon: a little ball between the screens that rolls
   // with the aircraft when everything else has gone dark ---
@@ -178,7 +315,10 @@ export function createCockpit() {
   gearLever.add(gearKnob);
   gearLever.position.set(1.38, -0.24, 4.8);
   group.add(gearLever);
-  hitbox('gear', 'Landing gear lever — click to lower or raise the gear (or press G)', 0.5, 0.66, 0.44, 1.38, -0.02, 4.7);
+  hitbox('gear', 'Landing gear lever — click to lower or raise the gear (or press G)', 0.3, 0.55, 0.34, 1.38, -0.05, 4.74);
+  const gearIcon = iconPlane(0.13, drawWheel);
+  gearIcon.position.set(1.05, 0.46, 4.73);
+  group.add(gearIcon);
 
   // --- Oxygen and crossfeed (below the gear) ---
   const oxyMat = basic('#8a6a1c');
@@ -186,13 +326,19 @@ export function createCockpit() {
   const oxyLabel = labelPlane('OXY MASK', 0.42, 0.1, '#e8cf8a', '#1f1a10', 42);
   oxyLabel.position.set(1.12, -0.42, 4.735);
   group.add(oxyLabel);
-  hitbox('oxygen', 'Deploy the oxygen masks', 0.44, 0.36, 0.4, 1.12, -0.24, 4.7);
+  hitbox('oxygen', 'Deploy the oxygen masks', 0.34, 0.3, 0.3, 1.12, -0.26, 4.74);
+  const oxyIcon = iconPlane(0.11, drawMask);
+  oxyIcon.position.set(1.12, -0.24, 4.845);
+  group.add(oxyIcon);
   const crossMat = basic('#31435a');
   box(0.2, 0.13, 0.09, '#31435a', 1.62, -0.24, 4.78, group, crossMat);
   const crossLabel = labelPlane('X-FEED', 0.42, 0.1, '#a9c4e0', '#10161f', 42);
   crossLabel.position.set(1.62, -0.42, 4.735);
   group.add(crossLabel);
-  hitbox('crossfeed', 'Open the fuel crossfeed valve', 0.44, 0.36, 0.4, 1.62, -0.24, 4.7);
+  hitbox('crossfeed', 'Open the fuel crossfeed valve', 0.34, 0.3, 0.3, 1.62, -0.26, 4.74);
+  const crossIcon = iconPlane(0.11, drawCrossfeed);
+  crossIcon.position.set(1.62, -0.24, 4.845);
+  group.add(crossIcon);
 
   // --- Overhead panel: four circuit breakers ---
   const overhead = new THREE.Group();
@@ -210,6 +356,9 @@ export function createCockpit() {
       box(0.05, 0.09, 0.05, '#aeb6bd', -0.78 + i * 0.26, 0.02 + r * 0.16, 0.09, overhead);
     }
   }
+  const boltIcon = iconPlane(0.17, drawBolt);
+  boltIcon.position.set(0, 0.3, 0.1);
+  overhead.add(boltIcon);
   const breakerMeshes = [];
   const breakerNames = ['PFD', 'HYD', 'CABIN', 'FUEL'];
   for (let i = 0; i < 4; i++) {
@@ -295,8 +444,16 @@ export function createCockpit() {
   simLabel.position.set(0, -0.27, 5.86);
   simLabel.rotation.x = -0.9;
   group.add(simLabel);
-  hitbox('simDown', 'SIM GEAR down — time steps slower (or press −)', 0.3, 0.55, 0.5, -0.12, -0.32, 6.1);
-  hitbox('simUp', 'SIM GEAR up — time steps faster (or press =). Linger at x4 and the air turns rough', 0.3, 0.55, 0.5, 0.12, -0.32, 6.1);
+  const simMinus = labelPlane('−', 0.13, 0.13, '#ffffff', '#14171c', 72);
+  simMinus.position.set(-0.1, -0.26, 5.9);
+  simMinus.rotation.x = -0.9;
+  group.add(simMinus);
+  const simPlus = labelPlane('+', 0.13, 0.13, '#ffffff', '#14171c', 72);
+  simPlus.position.set(0.14, -0.26, 5.9);
+  simPlus.rotation.x = -0.9;
+  group.add(simPlus);
+  hitbox('simDown', 'SIM GEAR down — time steps slower (or press −)', 0.26, 0.5, 0.4, -0.1, -0.35, 6.12);
+  hitbox('simUp', 'SIM GEAR up — time steps faster (or press =). Linger at x4 and the air turns rough', 0.26, 0.5, 0.4, 0.14, -0.35, 6.12);
 
   // The speedbrake lever, left of the throttles: pull it and she
   // steepens like a brick — the only way down from a high approach.
@@ -311,7 +468,7 @@ export function createCockpit() {
   sbLabel.position.set(-0.32, -0.3, 5.9);
   sbLabel.rotation.x = -0.9;
   group.add(sbLabel);
-  hitbox('speedbrake', 'Speedbrake lever — steepen the descent (or press SPACE)', 0.44, 0.44, 0.5, -0.32, -0.4, 6.05);
+  hitbox('speedbrake', 'Speedbrake lever — steepen the descent (or press SPACE)', 0.3, 0.5, 0.4, -0.34, -0.35, 6.12);
 
   const trimWheel = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.028, 8, 20), flat('#101216'));
   trimWheel.position.set(0.34, -0.62, 6.0);
@@ -340,7 +497,11 @@ export function createCockpit() {
   maydayLabel.position.set(0, -0.3, 5.5);
   maydayLabel.rotation.x = -0.9;
   group.add(maydayLabel);
-  hitbox('mayday', 'Press the MAYDAY radio — tell Port Alba you are coming in', 0.52, 0.4, 0.5, 0, -0.4, 5.55);
+  hitbox('mayday', 'Press the MAYDAY radio — tell Port Alba you are coming in', 0.4, 0.22, 0.36, 0, -0.42, 5.55);
+  const radioIcon = iconPlane(0.17, drawRadio);
+  radioIcon.position.set(0, -0.29, 5.32);
+  radioIcon.rotation.x = -0.9;
+  group.add(radioIcon);
 
   // --- Seats and the captain ---
   function seat(x) {
