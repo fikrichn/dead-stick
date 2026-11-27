@@ -30,6 +30,32 @@ function box(w, h, d, color, x, y, z, parent) {
   return mesh;
 }
 
+/** Merge simple geometries into one (a non-indexed concat of
+ * positions and normals) so a two-tier tree canopy or a three-puff
+ * cloud stays a single geometry — one InstancedMesh, one draw call.
+ * Parts are scaled and translated into place before merging. */
+function mergeGeoms(list) {
+  const parts = list.map(({ geo, x = 0, y = 0, z = 0, sx = 1, sy = 1, sz = 1 }) => {
+    const g = geo.index ? geo.toNonIndexed() : geo;
+    g.scale(sx, sy, sz);
+    g.translate(x, y, z);
+    return g;
+  });
+  const total = parts.reduce((n, g) => n + g.attributes.position.count, 0);
+  const pos = new Float32Array(total * 3);
+  const nor = new Float32Array(total * 3);
+  let o = 0;
+  for (const g of parts) {
+    pos.set(g.attributes.position.array, o * 3);
+    nor.set(g.attributes.normal.array, o * 3);
+    o += g.attributes.position.count;
+  }
+  const out = new THREE.BufferGeometry();
+  out.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  out.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+  return out;
+}
+
 function smoothstep(edge0, edge1, x) {
   const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
   return t * t * (3 - 2 * t);
@@ -152,7 +178,10 @@ export function createWorld(random) {
   // --- The heightmap terrain, coloured by height, slope and patch ---
   const TERRAIN_W = 56000;
   const TERRAIN_D = 72000;
-  const terrainGeo = new THREE.PlaneGeometry(TERRAIN_W, TERRAIN_D, 200, 250);
+  // A denser grid than the first build (320×400 in place of 200×250):
+  // the same analytic height function, sampled finely enough that
+  // the hills shade smoothly instead of faceting.
+  const terrainGeo = new THREE.PlaneGeometry(TERRAIN_W, TERRAIN_D, 320, 400);
   terrainGeo.rotateX(-Math.PI / 2);
   {
     const pos = terrainGeo.attributes.position;
@@ -226,20 +255,68 @@ export function createWorld(random) {
     route.add(puff);
   }
 
-  // The lighthouse on its island, standing on the same heightmap.
+  // The lighthouse on its island, standing on the same heightmap:
+  // a tapered tower in red and white bands on a rock plinth, with a
+  // gallery, a glowing lamp room and a cone roof.
   const islandY = heightAt(ISLAND.x, ISLAND.z);
-  box(40, 190, 40, '#e8e4da', ISLAND.x, islandY + 90, ISLAND.z, route);
-  box(46, 26, 46, '#c33', ISLAND.x, islandY + 195, ISLAND.z, route);
+  const rockBase = new THREE.Mesh(new THREE.CylinderGeometry(52, 64, 18, 10), M.flat('#8d8578'));
+  rockBase.position.set(ISLAND.x, islandY + 4, ISLAND.z);
+  route.add(rockBase);
+  const bandH = 34;
+  for (let i = 0; i < 5; i++) {
+    const band = new THREE.Mesh(
+      new THREE.CylinderGeometry(21 - (i + 1) * 1.6, 21 - i * 1.6, bandH, 14),
+      M.flat(i % 2 ? '#c8402e' : '#e8e4da'),
+    );
+    band.position.set(ISLAND.x, islandY + 12 + bandH * (i + 0.5), ISLAND.z);
+    route.add(band);
+  }
+  const gallery = new THREE.Mesh(new THREE.CylinderGeometry(17, 17, 5, 14), M.flat('#3c4147'));
+  gallery.position.set(ISLAND.x, islandY + 12 + bandH * 5 + 2.5, ISLAND.z);
+  route.add(gallery);
+  const lampRoom = new THREE.Mesh(
+    new THREE.CylinderGeometry(9, 9, 13, 10),
+    new THREE.MeshLambertMaterial({ color: '#2c343c', emissive: '#ffb84d', emissiveIntensity: 0.9 }),
+  );
+  lampRoom.position.set(ISLAND.x, islandY + 12 + bandH * 5 + 11, ISLAND.z);
+  route.add(lampRoom);
+  const lampRoof = new THREE.Mesh(new THREE.ConeGeometry(12, 9, 10), M.flat('#c8402e'));
+  lampRoof.position.set(ISLAND.x, islandY + 12 + bandH * 5 + 22, ISLAND.z);
+  route.add(lampRoof);
 
   // Port Alba: a grid of lit blocks, each planted on the terrain.
+  // One shared canvas facade — a grid of windows, a third of them
+  // lit — gives every block its surface detail; four tints keep the
+  // skyline varied without extra textures.
+  function facadeTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 256;
+    const g = canvas.getContext('2d');
+    g.fillStyle = '#ffffff';
+    g.fillRect(0, 0, 128, 256);
+    for (let y = 10; y < 240; y += 16) {
+      for (let x = 10; x < 118; x += 16) {
+        g.fillStyle = random() < 0.4 ? '#ffd98a' : '#46525e';
+        g.fillRect(x, y, 8, 9);
+      }
+    }
+    return new THREE.CanvasTexture(canvas);
+  }
+  const facade = facadeTexture();
+  const facadeMats = ['#c3c8cd', '#b0b6bd', '#c9c4b8', '#aebfcc']
+    .map((c) => new THREE.MeshLambertMaterial({ map: facade, color: c, emissive: '#23201a' }));
   for (let i = 0; i < 110; i++) {
     const bx = range(random, -5200, 5200);
     const bz = range(random, -39000, -26500);
     const h = range(random, 25, 130);
     const ground = heightAt(bx, bz);
-    const building = box(range(random, 60, 150), h, range(random, 60, 150),
-      i % 5 === 0 ? '#8a8f96' : '#767c85', bx, ground + h / 2 - 2, bz, route);
-    building.material = new THREE.MeshLambertMaterial({ color: building.material.color, emissive: '#2f2a1a' });
+    const building = new THREE.Mesh(
+      new THREE.BoxGeometry(range(random, 60, 150), h, range(random, 60, 150)),
+      facadeMats[i % facadeMats.length],
+    );
+    building.position.set(bx, ground + h / 2 - 2, bz);
+    route.add(building);
   }
 
   // --- Runway 27 at Port Alba, threshold at z = -DESCENT.startDistanceM ---
@@ -271,10 +348,14 @@ export function createWorld(random) {
       route.add(lamp);
     }
   }
-  // A simple terminal and tower so the field reads as an airport.
+  // The terminal and tower: the terminal wears a glass front band
+  // under a roof slab, and the tower gets a glazed cab.
   box(300, 36, 80, '#9aa0a6', -260, 18, runwayZ - 500, route);
+  box(306, 10, 86, '#2e3d47', -260, 26, runwayZ - 500, route);
+  box(316, 5, 92, '#6d7278', -260, 38.5, runwayZ - 500, route);
   box(24, 95, 24, '#b9bec4', -190, 47, runwayZ - 420, route);
-  box(40, 14, 40, '#5b7d8a', -190, 100, runwayZ - 420, route);
+  box(42, 15, 42, '#33454f', -190, 100, runwayZ - 420, route);
+  box(46, 4, 46, '#6d7278', -190, 109.5, runwayZ - 420, route);
 
   // --- Scatter: trees and stones off the same height function ---
   // (threejs-landscape: rejection-sample against height and slope,
@@ -293,7 +374,12 @@ export function createWorld(random) {
 
   const TREE_N = 950;
   const trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(1.1, 1.8, 10, 5), M.flat('#6b4a2f'), TREE_N);
-  const canopies = new THREE.InstancedMesh(new THREE.ConeGeometry(7.5, 22, 7), new THREE.MeshLambertMaterial({ color: '#ffffff' }), TREE_N);
+  // A two-tier canopy reads as a pine instead of a party hat.
+  const canopyGeo = mergeGeoms([
+    { geo: new THREE.ConeGeometry(8.2, 15, 7), y: 6 },
+    { geo: new THREE.ConeGeometry(5.6, 13, 7), y: 15 },
+  ]);
+  const canopies = new THREE.InstancedMesh(canopyGeo, new THREE.MeshLambertMaterial({ color: '#ffffff' }), TREE_N);
   let trees = 0;
   for (let tries = 0; tries < TREE_N * 6 && trees < TREE_N; tries++) {
     const x = range(random, -19000, 19000);
@@ -312,7 +398,7 @@ export function createWorld(random) {
     dummy.position.set(x, h - 0.5 + 5 * s, z);
     dummy.updateMatrix();
     trunks.setMatrixAt(trees, dummy.matrix);
-    dummy.position.y = h - 0.5 + 17 * s;
+    dummy.position.y = h - 0.5 + 8 * s;
     dummy.updateMatrix();
     canopies.setMatrixAt(trees, dummy.matrix);
     canopies.setColorAt(trees, tint.setHSL(0.29 + random() * 0.05, 0.42, 0.24 + random() * 0.12));
@@ -345,17 +431,30 @@ export function createWorld(random) {
   stones.count = rocks;
   route.add(stones);
 
-  // --- Clouds: flat white slabs the descent falls through ---
-  const clouds = new THREE.Group();
-  for (let i = 0; i < 70; i++) {
-    const cloud = new THREE.Mesh(
-      new THREE.BoxGeometry(range(random, 300, 900), range(random, 24, 60), range(random, 200, 500)),
-      new THREE.MeshLambertMaterial({ color: '#ffffff', transparent: true, opacity: 0.68 }),
-    );
-    cloud.position.set(range(random, -9000, 9000), range(random, 500, 3900), range(random, -34000, 4000));
-    clouds.add(cloud);
+  // --- Clouds: soft merged puffs, instanced, that the descent falls
+  // through — three flattened spheres per cloud, one draw call. ---
+  const puffGeo = mergeGeoms([
+    { geo: new THREE.SphereGeometry(150, 10, 8), sx: 1.5, sy: 0.55, sz: 1 },
+    { geo: new THREE.SphereGeometry(105, 9, 7), x: 95, y: 25, sx: 1.25, sy: 0.52, sz: 0.9 },
+    { geo: new THREE.SphereGeometry(95, 9, 7), x: -92, y: 18, sx: 1.15, sy: 0.5, sz: 0.85 },
+    { geo: new THREE.SphereGeometry(80, 9, 7), x: 5, y: 52, sx: 1.1, sy: 0.55, sz: 0.9 },
+  ]);
+  const cloudMesh = new THREE.InstancedMesh(
+    puffGeo,
+    new THREE.MeshLambertMaterial({ color: '#ffffff', transparent: true, opacity: 0.78 }),
+    70,
+  );
+  {
+    const d = new THREE.Object3D();
+    for (let i = 0; i < 70; i++) {
+      d.position.set(range(random, -9000, 9000), range(random, 500, 3900), range(random, -34000, 4000));
+      d.rotation.set(0, random() * Math.PI, 0);
+      d.scale.setScalar(range(random, 1.2, 3.4));
+      d.updateMatrix();
+      cloudMesh.setMatrixAt(i, d.matrix);
+    }
   }
-  route.add(clouds);
+  route.add(cloudMesh);
 
   // --- The aircraft itself (tail-cam body; nose/wings/engines for the seat) ---
   // Modelled after the 3d-high-poly-models skill's order of work:

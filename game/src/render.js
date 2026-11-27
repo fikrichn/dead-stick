@@ -516,9 +516,24 @@ export function createCockpit() {
   const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.21, 0.26, 0.72, 10), flat('#22304d'));
   torso.position.y = 0.36;
   captain.add(torso);
+  // Shoulders where the arms leave the torso, so he is built like a
+  // person instead of a tube with sticks.
+  for (const s of [-1, 1]) {
+    const shoulder = new THREE.Mesh(new THREE.SphereGeometry(0.095, 10, 8), flat('#22304d'));
+    shoulder.position.set(s * 0.21, 0.64, 0.02);
+    captain.add(shoulder);
+    const hand = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), flat('#d9a37e'));
+    hand.position.set(s * 0.44, 0.02, 0.3);
+    captain.add(hand);
+  }
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 10), flat('#d9a37e'));
   head.position.set(0, 0.82, 0.1);
   captain.add(head);
+  // Hair over the back and crown of the head, under the cap.
+  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.163, 12, 10), flat('#3a2e24'));
+  hair.scale.set(1, 0.82, 1);
+  hair.position.set(0, 0.865, 0.085);
+  captain.add(hair);
   const capTop = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.07, 12), flat('#16233c'));
   capTop.position.set(0, 0.94, 0.1);
   captain.add(capTop);

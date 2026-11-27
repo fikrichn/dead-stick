@@ -81,6 +81,19 @@ export function stageShot(name, ctx) {
     return;
   }
 
+  if (name === 'city') {
+    // Low over Port Alba in the outside view: the builder's check
+    // for the facade texture on the city blocks. Not shipped.
+    s.phase = 'calm';
+    s.altFt = 420;
+    s.speedKt = 190;
+    s.distanceM = 2600;
+    s.bankDeg = 8;
+    s.throttle = 0.5;
+    ctx.setTail(true);
+    return;
+  }
+
   // Unknown scene: fall back to the calm.
   stageShot('start', ctx);
 }

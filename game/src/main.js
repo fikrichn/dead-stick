@@ -924,6 +924,12 @@ function updateCamera(dt) {
   plane.position.set(s.lateralM * 0.4, Math.max(0, s.altFt) * 0.3048, 0);
   plane.rotation.z = (-s.bankDeg * Math.PI) / 180;
   plane.rotation.x = (s.pitchDeg * Math.PI) / 180 * 0.6;
+  // Refresh the plane's matrix BEFORE placing the camera from it.
+  // Reading a stale matrixWorld here trailed the camera one frame
+  // behind the aircraft: invisible at SIM ×1, but at ×2/×4 the trail
+  // grew to a metre of vertical drift — the camera floated up out of
+  // its seat and clipped the cockpit during turbulence shake.
+  plane.updateMatrixWorld(true);
   world.update(dt, DESCENT.startDistanceM - s.distanceM);
   world.setGear(s.gearDown);
 
@@ -1056,6 +1062,10 @@ window.__deadStick = {
   state: () => s,
   start: startGame,
   action: doAction,
+  camera: () => camera,
+  plane: () => world.planeGroup,
+  look: () => input.look,
+  startEvent,
   advance(seconds) {
     const steps = Math.round(seconds / STEP);
     for (let i = 0; i < steps; i++) {
