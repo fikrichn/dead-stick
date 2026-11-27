@@ -925,6 +925,7 @@ function updateCamera(dt) {
   plane.rotation.z = (-s.bankDeg * Math.PI) / 180;
   plane.rotation.x = (s.pitchDeg * Math.PI) / 180 * 0.6;
   world.update(dt, DESCENT.startDistanceM - s.distanceM);
+  world.setGear(s.gearDown);
 
   const shake = s.event && s.event.type === 'turbulence' ? 0.05
     : s.event && (s.event.type === 'engineFire' || s.event.type === 'hydraulic') ? 0.012 : 0;

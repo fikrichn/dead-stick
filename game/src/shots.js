@@ -66,6 +66,21 @@ export function stageShot(name, ctx) {
     return;
   }
 
+  if (name === 'hills') {
+    // A low pass over the inland hills in the outside view: the
+    // check that the warped terrain, its moisture colours and the
+    // scattered trees and stones read from the air. Not one of the
+    // four shipped screenshots — a builder's scene.
+    s.phase = 'calm';
+    s.altFt = 800;
+    s.speedKt = 200;
+    s.distanceM = 4500;
+    s.bankDeg = -6;
+    s.throttle = 0.55;
+    ctx.setTail(true);
+    return;
+  }
+
   // Unknown scene: fall back to the calm.
   stageShot('start', ctx);
 }
